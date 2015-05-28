@@ -1,4 +1,4 @@
-function setMarker(popup, map, control){
+function setMarker(popup, map){
     return function(event){
         var type = $(event.target).data('type'),
             waypoint = {
@@ -30,9 +30,24 @@ function setMarker(popup, map, control){
                 }, waypoints);
                 break;
         }
-        L.marker(popup.getLatLng()).addTo(map).on('click', function(event){
-
-        });
+        L.marker(popup.getLatLng())
+            .addTo(map)
+            .on('click', function(event){
+                var marker = this;
+                marker
+                    .bindPopup(Mustache.render($('#popup-controls').html()))
+                    .openPopup();
+            })
+            .on('popupopen', function(event){
+                var popup = event.popup,
+                    handleButtonClick = function(event){
+                        var type = $(event.target).data('type');
+                    };
+                $('.popup-controls').on('click', '> .ui.button', handleButtonClick);
+            })
+            .on('popupclose', function(event){
+                $('.popup-controls').off('click', '**');
+            });
         map.closePopup(popup);
     };
 }
@@ -47,7 +62,11 @@ module.exports = function(id){
             zoom: 13
         }),
         buttonsTemplate = Mustache.render($('#buttons-template').html()),
-        control = L.Routing.control({});
+        control = L.Routing.control({
+            router: new L.Routing.OSRM({
+                serviceUrl: 'http://localhost:5000/viaroute'
+            })
+        });
     control.addTo(map);
 
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
@@ -58,7 +77,7 @@ module.exports = function(id){
             .setLatLng(latlng)
             .setContent(buttonsTemplate)
             .openOn(map);
-        $('.buttons-container').on('click', '.ui.button', setMarker(popup, map, control));
+        $('.buttons-container').on('click', '.ui.button', setMarker(popup, map));
     });
     $('#control').on('click', '> .ui.button', function(){
         $.ajax({

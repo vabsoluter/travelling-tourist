@@ -19,16 +19,14 @@ app.get('/', function (req, res) {
 app.post('/solve', bodyParser.json(), function(req, res){
     var waypoints = req.body.waypoints,
         queryString = R.reduceIndexed(function(carry, item, index, list){
-            carry += 'loc=' + item.latlng.lat + ',' + item.latlng.lng;
+            carry += 'loc=' + item.lat + ',' + item.lng;
             if(index !== list.length - 1){
                 carry += '&';
             }
             return carry;
         }, '', waypoints),
-        startIndex = R.findIndex(R.propEq('start', true), waypoints),
-        finishIndex = R.findIndex(R.propEq('finish', true), waypoints);
-    console.log(startIndex);
-    console.log(finishIndex);
+        startIndex = req.body.start,
+        finishIndex = req.body.finish;
     request('http://localhost:5000/table?' + queryString, function(err, resp, body){
         if(err){
             console.error('error getting distance table: ', err);
@@ -40,7 +38,6 @@ app.post('/solve', bodyParser.json(), function(req, res){
                 return '{' + subArr.join(', ') + '}';
             }, distanceTable).join(',') + '}',
             connectionString = 'postgres://tourist:tourist@localhost/routing';
-        console.log(distanceString);
         pg.connect(connectionString, function(err, client, done){
             if(err) {
                 console.error('error fetching client from pool', err);

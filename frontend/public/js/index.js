@@ -1,11 +1,123 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var mapFunc = require('./map.js');
+function handleMarkerManipulation(marker, map, markerCollection){
+    return function(event){
+        var type = $(event.target).data('type'),
+            index = markerCollection.markers.indexOf(marker);
+        marker.closePopup();
+        switch(type){
+            case 'delete':
+                removeMarker(markerCollection, marker, map);
+                break;
+            case 'start':
+                markerCollection.start = index;
+                break;
+            case 'finish':
+                markerCollection.finish = index;
+                break;
+        }
+    };
+}
+
+function addMarker(markerCollection, latlng, map){
+    var markers = markerCollection.markers,
+        marker = L.marker(latlng, {riseOnHover: true});
+    markers.push(marker);
+    marker
+        .addTo(map)
+        .bindPopup($('#popup-controls').html())
+        .on('click', function(){
+            this.openPopup();
+        })
+        .on('popupopen', function(){
+            $('.popup-controls').on('click', '> .ui.button', handleMarkerManipulation(marker, map, markerCollection));
+        })
+        .on('remove', function(){
+            $('.popup-controls').off('click');
+        });
+}
+
+function removeMarker(markerCollection, marker, map){
+    var markers = markerCollection.markers,
+        index = markers.indexOf(marker);
+    markers.splice(index, 1);
+    if(index === markerCollection.start){
+        markerCollection.start = null;
+    }
+    if(index === markerCollection.finish){
+        markerCollection.finish = null;
+    }
+    marker.unbindPopup();
+    map.removeLayer(marker);
+}
+
+var R = require('ramda');
+
+module.exports = function(id){
+    var map = L.map(id, {
+            center: [20.52577476373983, -100.81329345703125],
+            zoom: 13
+        }),
+        control = L.Routing.control({
+            router: new L.Routing.OSRM({
+                serviceUrl: 'http://localhost:5000/viaroute'
+            })
+        }),
+        markerCollection = {
+            start: null,
+            finish: null,
+            markers: []
+        };
+
+    control.addTo(map);
+    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
+
+    map.on('click', function(event){
+        addMarker(markerCollection, event.latlng, map);
+    });
+
+    $('#control').on('click', '> .ui.button', function(){
+        console.log(markerCollection);
+        var waypoints = R.map(function(marker){
+                var latlng = marker.getLatLng();
+                return {
+                    lat: latlng.lat,
+                    lng: latlng.lng
+                };
+            }, markerCollection.markers),
+            start = markerCollection.start || 0,
+            finish = markerCollection.finish || waypoints.length - 1;
+        $.ajax({
+            url: 'solve',
+            data: JSON.stringify({
+                waypoints: waypoints,
+                start: start,
+                finish: finish
+            }),
+            type: 'POST',
+            processData: false,
+            contentType: "application/json"
+        }).done(function(sequence){
+            var route = R.reduce(function(carry, index){
+                carry.push(markerCollection.markers[index].getLatLng());
+                return carry;
+            }, [], sequence);
+            control.setWaypoints(route).route();
+            console.log(markerCollection);
+            markerCollection.markers.forEach(function(marker){
+                marker.openPopup();
+            });
+        });
+    });
+    return map;
+};
+},{"ramda":5}],2:[function(require,module,exports){
+var mapFunc = require('./clean-map.js');
 
 $(function(){
     var map = mapFunc('map');
 });
-},{"./map.js":2}],2:[function(require,module,exports){
-function setMarker(popup, map, control){
+},{"./clean-map.js":1}],3:[function(require,module,exports){
+function setMarker(popup, map){
     return function(event){
         var type = $(event.target).data('type'),
             waypoint = {
@@ -37,11 +149,30 @@ function setMarker(popup, map, control){
                 }, waypoints);
                 break;
         }
-        L.marker(popup.getLatLng()).addTo(map).on('click', function(event){
-
-        });
+        L.marker(popup.getLatLng())
+            .addTo(map)
+            .on('click', function(event){
+                var marker = this;
+                marker
+                    .bindPopup(Mustache.render($('#popup-controls').html()))
+                    .openPopup();
+            })
+            .on('popupopen', function(event){
+                var popup = event.popup,
+                    handleButtonClick = function(event){
+                        var type = $(event.target).data('type');
+                    };
+                $('.popup-controls').on('click', '> .ui.button', handleButtonClick);
+            })
+            .on('popupclose', function(event){
+                $('.popup-controls').off('click', '**');
+            });
         map.closePopup(popup);
     };
+}
+
+function removeMarker(marker){
+
 }
 
 var Mustache = require('mustache'),
@@ -54,7 +185,11 @@ module.exports = function(id){
             zoom: 13
         }),
         buttonsTemplate = Mustache.render($('#buttons-template').html()),
-        control = L.Routing.control({});
+        control = L.Routing.control({
+            router: new L.Routing.OSRM({
+                serviceUrl: 'http://localhost:5000/viaroute'
+            })
+        });
     control.addTo(map);
 
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
@@ -65,7 +200,7 @@ module.exports = function(id){
             .setLatLng(latlng)
             .setContent(buttonsTemplate)
             .openOn(map);
-        $('.buttons-container').on('click', '.ui.button', setMarker(popup, map, control));
+        $('.buttons-container').on('click', '.ui.button', setMarker(popup, map));
     });
     $('#control').on('click', '> .ui.button', function(){
         $.ajax({
@@ -89,7 +224,7 @@ module.exports = function(id){
     });
     return map;
 };
-},{"mustache":3,"ramda":4}],3:[function(require,module,exports){
+},{"mustache":4,"ramda":5}],4:[function(require,module,exports){
 /*!
  * mustache.js - Logic-less {{mustache}} templates with JavaScript
  * http://github.com/janl/mustache.js
@@ -692,7 +827,7 @@ module.exports = function(id){
 
 }));
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 //  Ramda v0.14.0
 //  https://github.com/ramda/ramda
 //  (c) 2013-2015 Scott Sauyet, Michael Hurley, and David Chambers
@@ -8205,4 +8340,4 @@ module.exports = function(id){
 
 }.call(this));
 
-},{}]},{},[1,2]);
+},{}]},{},[2,3]);

@@ -1,7 +1,8 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var R = require('ramda'),
     Mustache = require('mustache'),
-    MyFormatter = require('./formatter.js');
+    MyFormatter = require('./formatter.js'),
+    schedule = require('./scheduler.js');
 
 function findIndex(latlng, plan){
     return R.findIndex(function(waypoint){
@@ -109,7 +110,6 @@ module.exports = function(id){
             geocoder = geocoderControl.options.geocoder;
         geocoder.geocode(destination, function(locations){
             var htmls = R.map(function(location){
-                console.log(location);
                 return Mustache.render($('#search-item').html(), {
                     name: location.name,
                     lat: location.center.lat,
@@ -174,8 +174,16 @@ module.exports = function(id){
                         formatter: formatter
                     });
                     control.getRouter().route(plan.getWaypoints(), function(err, routes){
-                        console.log(err);
-                        console.log(routes);
+                        if(err){
+                            console.error('can not make the route');
+                        }else{
+                            //schedule(routes[0], new Date());
+                            R.forEach(function(waypoint){
+                                geocoderControl.options.geocoder.reverse(waypoint.latLng, function(){
+
+                                });
+                            }, routes[0].inputWaypoints);
+                        }
                     });
                     control.addTo(map);
                     control.route();
@@ -185,9 +193,8 @@ module.exports = function(id){
     });
     return map;
 };
-},{"./formatter.js":2,"mustache":4,"ramda":5}],2:[function(require,module,exports){
+},{"./formatter.js":2,"./scheduler.js":4,"mustache":5,"ramda":6}],2:[function(require,module,exports){
 var MyFormatter = function(options){
-    console.log(options);
 };
 
 MyFormatter.prototype.formatDistance = function(d){
@@ -243,7 +250,6 @@ MyFormatter.prototype.formatInstruction = function(instr, i){
 };
 
 MyFormatter.prototype.getIconName = function(instr, i){
-    console.log(instr);
     switch (instr.type) {
         case 'Straight':
             return (i === 0 ? 'depart' : 'continue');
@@ -276,8 +282,17 @@ var mapFunc = require('./clean-map.js');
 
 $(function(){
     var map = mapFunc('map');
+    $('#datetimepicker').datetimepicker({
+        lang: 'ru'
+    });
 });
 },{"./clean-map.js":1}],4:[function(require,module,exports){
+function schedule(route, departureTime){
+
+}
+
+module.exports = schedule;
+},{}],5:[function(require,module,exports){
 /*!
  * mustache.js - Logic-less {{mustache}} templates with JavaScript
  * http://github.com/janl/mustache.js
@@ -880,7 +895,7 @@ $(function(){
 
 }));
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 //  Ramda v0.14.0
 //  https://github.com/ramda/ramda
 //  (c) 2013-2015 Scott Sauyet, Michael Hurley, and David Chambers

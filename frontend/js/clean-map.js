@@ -1,6 +1,7 @@
 var R = require('ramda'),
     Mustache = require('mustache'),
-    MyFormatter = require('./formatter.js');
+    MyFormatter = require('./formatter.js'),
+    schedule = require('./scheduler.js');
 
 function findIndex(latlng, plan){
     return R.findIndex(function(waypoint){
@@ -108,7 +109,6 @@ module.exports = function(id){
             geocoder = geocoderControl.options.geocoder;
         geocoder.geocode(destination, function(locations){
             var htmls = R.map(function(location){
-                console.log(location);
                 return Mustache.render($('#search-item').html(), {
                     name: location.name,
                     lat: location.center.lat,
@@ -173,8 +173,16 @@ module.exports = function(id){
                         formatter: formatter
                     });
                     control.getRouter().route(plan.getWaypoints(), function(err, routes){
-                        console.log(err);
-                        console.log(routes);
+                        if(err){
+                            console.error('can not make the route');
+                        }else{
+                            //schedule(routes[0], new Date());
+                            R.forEach(function(waypoint){
+                                geocoderControl.options.geocoder.reverse(waypoint.latLng, function(){
+
+                                });
+                            }, routes[0].inputWaypoints);
+                        }
                     });
                     control.addTo(map);
                     control.route();

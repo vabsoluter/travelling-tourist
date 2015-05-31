@@ -1,5 +1,4 @@
 var MyFormatter = function(options){
-    console.log(options);
 };
 
 MyFormatter.prototype.formatDistance = function(d){
@@ -55,7 +54,6 @@ MyFormatter.prototype.formatInstruction = function(instr, i){
 };
 
 MyFormatter.prototype.getIconName = function(instr, i){
-    console.log(instr);
     switch (instr.type) {
         case 'Straight':
             return (i === 0 ? 'depart' : 'continue');

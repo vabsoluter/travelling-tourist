@@ -5,13 +5,17 @@ block title
 
 block append styles
     link(rel='stylesheet' href='public/css/index.css')
+    link(rel='stylesheet' href='public/datetimepicker/jquery.datetimepicker.css')
 
 block append scripts
     script(src='public/js/index.js')
+    script(src='public/datetimepicker/jquery.datetimepicker.js')
 
 block content
     .ui.grid
         #left-menu.five.wide.column
+            .ui.fluid.input
+                input#datetimepicker(type='text' placeholder='Выберите дату и время отправления')
             .ui.fluid.action.input
                 input(placeholder='Введите название')
                 #reverse-geocode.ui.teal.button= 'Найти'

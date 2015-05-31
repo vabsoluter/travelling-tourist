@@ -10,12 +10,18 @@ block append scripts
     script(src='public/js/index.js')
 
 block content
-    #map
-    #control
-        .ui.teal.button= 'Построить маршрут'
+    .ui.grid
+        #left-menu.five.wide.column
+            .ui.fluid.action.input
+                input(placeholder='Введите название')
+                #reverse-geocode.ui.teal.button= 'Найти'
+            #search-results.ui.relaxed.link.items
+            .ui.teal.button= 'Построить маршрут'
+        .eleven.wide.column
+            #map
 
 block templates
-    script#buttons-template(type='x-tmpl-mustache')
-        include ../mustache/point-type-selection.mustache
-    script#popup-controls(type='x-tmpl-mustache')
-        include ../mustache/popup-controls.mustache
+    script#popup-controls(type='x-tmpl-templates')
+        include ../templates/popup-controls.html
+    script#search-item(type='x-tmpl-mustache')
+        include ../templates/search-item.mustache

@@ -26,8 +26,10 @@
 #map .ui.button {
   min-width: 200px;
 }
-#control {
-  position: absolute;
-  left: 20px;
-  bottom: 100px;
+.five.wide.column .ui.action.input {
+  margin-bottom: 25px;
+  margin-top: 30px;
+}
+.five.wide.column > div {
+  margin-left: 5px;
 }

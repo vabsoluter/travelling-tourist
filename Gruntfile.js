@@ -13,7 +13,7 @@ module.exports = function(grunt){
             files: ['frontend/js/**/*.js'],
             dist: {
                 files: {
-                    'frontend/public/js/index.js': ['frontend/js/index.js', 'frontend/js/map.js']
+                    'frontend/public/js/index.js': ['frontend/js/index.js', 'frontend/js/clean-map.js']
                 }
             }
         },

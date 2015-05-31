@@ -1,230 +1,283 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-function handleMarkerManipulation(marker, map, markerCollection){
+var R = require('ramda'),
+    Mustache = require('mustache'),
+    MyFormatter = require('./formatter.js');
+
+function findIndex(latlng, plan){
+    return R.findIndex(function(waypoint){
+        return waypoint.latLng === latlng;
+    }, plan.getWaypoints());
+}
+
+function removeWaypoint(marker, plan){
+    var latlng = marker.getLatLng(),
+        index = findIndex(latlng, plan);
+    plan.spliceWaypoints(index, 1);
+}
+
+function markAsStart(marker, plan){
+    var latlng = marker.getLatLng(),
+        index = findIndex(latlng, plan),
+        waypoint = plan.getWaypoints()[index];
+    if(index !== plan.getWaypoints().length - 1){
+        removeWaypoint(marker, plan);
+    }
+    plan.spliceWaypoints(0, 0, waypoint);
+}
+
+function markAsFinish(marker, plan){
+    var latlng = marker.getLatLng(),
+        index = findIndex(latlng, plan),
+        waypoint = plan.getWaypoints()[index];
+    if(index !== 0){
+        removeWaypoint(marker, plan);
+    }
+    plan.spliceWaypoints(plan.getWaypoints().length, 0, waypoint);
+}
+
+function handleMarkerManipulation(marker, plan){
     return function(event){
-        var type = $(event.target).data('type'),
-            index = markerCollection.markers.indexOf(marker);
-        marker.closePopup();
+        var type = $(event.target).data('type');
         switch(type){
             case 'delete':
-                removeMarker(markerCollection, marker, map);
+                removeWaypoint(marker, plan);
                 break;
             case 'start':
-                markerCollection.start = index;
+                markAsStart(marker, plan);
                 break;
             case 'finish':
-                markerCollection.finish = index;
+                markAsFinish(marker, plan);
                 break;
+            default:
+                return;
         }
     };
 }
 
-function addMarker(markerCollection, latlng, map){
-    var markers = markerCollection.markers,
-        marker = L.marker(latlng, {riseOnHover: true});
-    markers.push(marker);
-    marker
-        .addTo(map)
-        .bindPopup($('#popup-controls').html())
-        .on('click', function(){
-            this.openPopup();
-        })
-        .on('popupopen', function(){
-            $('.popup-controls').on('click', '> .ui.button', handleMarkerManipulation(marker, map, markerCollection));
-        })
-        .on('remove', function(){
-            $('.popup-controls').off('click');
-        });
+function addWaypoint(plan, latlng){
+    var waypoints = plan.getWaypoints(),
+        waypoint = new L.Routing.Waypoint(latlng);
+    if(R.isNil(waypoints[0].latLng)){
+        return plan.spliceWaypoints(0, 1, waypoint);
+    }else if(R.isNil(waypoints[1].latLng)){
+        return plan.spliceWaypoints(1, 1, waypoint);
+    }
+    return plan.spliceWaypoints(waypoints.length, 0, waypoint);
 }
 
-function removeMarker(markerCollection, marker, map){
-    var markers = markerCollection.markers,
-        index = markers.indexOf(marker);
-    markers.splice(index, 1);
-    if(index === markerCollection.start){
-        markerCollection.start = null;
-    }
-    if(index === markerCollection.finish){
-        markerCollection.finish = null;
-    }
-    marker.unbindPopup();
-    map.removeLayer(marker);
+function getMarkerGenerator(getPlan){
+    return function(index, waypoint, totalNumber){
+        var marker = L.marker(waypoint.latLng);
+        marker
+            .bindPopup($('#popup-controls').html())
+            .on('popupopen', function(){
+                $('.popup-controls').on('click', '> .ui.button', handleMarkerManipulation(marker, getPlan()));
+            })
+            .on('remove', function(){
+                $('.popup-controls').off('click');
+            });
+        return marker;
+    };
 }
-
-var R = require('ramda');
 
 module.exports = function(id){
+    function getPlan(){
+        return plan;
+    }
+
     var map = L.map(id, {
             center: [20.52577476373983, -100.81329345703125],
             zoom: 13
         }),
-        control = L.Routing.control({
-            router: new L.Routing.OSRM({
-                serviceUrl: 'http://localhost:5000/viaroute'
-            })
+        formatter = new MyFormatter(),
+        plan = L.Routing.plan([],{
+            draggableWaypoints: false,
+            createMarker: getMarkerGenerator(getPlan)
         }),
-        markerCollection = {
-            start: null,
-            finish: null,
-            markers: []
-        };
+        control = null,
+        geocoderControl = new L.Control.Geocoder();
 
-    control.addTo(map);
+    map.addLayer(plan);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
 
     map.on('click', function(event){
-        addMarker(markerCollection, event.latlng, map);
+        addWaypoint(plan, event.latlng);
     });
 
-    $('#control').on('click', '> .ui.button', function(){
-        console.log(markerCollection);
-        var waypoints = R.map(function(marker){
-                var latlng = marker.getLatLng();
-                return {
-                    lat: latlng.lat,
-                    lng: latlng.lng
-                };
-            }, markerCollection.markers),
-            start = markerCollection.start || 0,
-            finish = markerCollection.finish || waypoints.length - 1;
-        $.ajax({
-            url: 'solve',
-            data: JSON.stringify({
-                waypoints: waypoints,
-                start: start,
-                finish: finish
-            }),
-            type: 'POST',
-            processData: false,
-            contentType: "application/json"
-        }).done(function(sequence){
-            var route = R.reduce(function(carry, index){
-                carry.push(markerCollection.markers[index].getLatLng());
-                return carry;
-            }, [], sequence);
-            control.setWaypoints(route).route();
-            console.log(markerCollection);
-            markerCollection.markers.forEach(function(marker){
-                marker.openPopup();
+    $('#reverse-geocode').click(function(){
+        var destination = $(this).parent().find('input').val(),
+            geocoder = geocoderControl.options.geocoder;
+        geocoder.geocode(destination, function(locations){
+            var htmls = R.map(function(location){
+                console.log(location);
+                return Mustache.render($('#search-item').html(), {
+                    name: location.name,
+                    lat: location.center.lat,
+                    lng: location.center.lng
+                });
+            }, locations);
+            $('#search-results').html(htmls.join('')).on('click', '> .item', function(event){
+                var item = $(event.target).parents('.item'),
+                    lat = item.data('lat'),
+                    lng = item.data('lng');
+                map.setView(L.latLng(lat, lng));
             });
         });
     });
+
+    $('#left-menu').on('click', '> .ui.button', function(){
+        if(!R.isNil(control)){
+            map.removeControl(control);
+        }
+        if(plan.isReady()){
+            if(plan.getWaypoints().length <= 3){
+                control = L.Routing.control({
+                    plan: plan,
+                    autoRoute: false,
+                    router: new L.Routing.OSRM({
+                        serviceUrl: 'http://localhost:5000/viaroute'
+                    }),
+                    formatter: formatter
+                });
+                control.addTo(map);
+                control.route();
+            }else{
+                var waypoints = R.map(function(waypoint){
+                    return {
+                        lat: waypoint.latLng.lat,
+                        lng: waypoint.latLng.lng
+                    };
+                }, plan.getWaypoints());
+                $.ajax({
+                    url: 'solve',
+                    data: JSON.stringify({
+                        waypoints: waypoints
+                    }),
+                    type: 'POST',
+                    processData: false,
+                    contentType: "application/json"
+                }).done(function(sequence){
+                    var oldWaypoints = plan.getWaypoints(),
+                        newWaypoints = R.map(function(index){
+                            return oldWaypoints[index];
+                        }, sequence);
+                    plan.setWaypoints(newWaypoints);
+                    control = L.Routing.control({
+                        plan: plan,
+                        autoRoute: false,
+                        lineOptions: {
+                            addWaypoints: false
+                        },
+                        router: new L.Routing.OSRM({
+                            serviceUrl: 'http://localhost:5000/viaroute'
+                        }),
+                        formatter: formatter
+                    });
+                    control.getRouter().route(plan.getWaypoints(), function(err, routes){
+                        console.log(err);
+                        console.log(routes);
+                    });
+                    control.addTo(map);
+                    control.route();
+                });
+            }
+        }
+    });
     return map;
 };
-},{"ramda":5}],2:[function(require,module,exports){
+},{"./formatter.js":2,"mustache":4,"ramda":5}],2:[function(require,module,exports){
+var MyFormatter = function(options){
+    console.log(options);
+};
+
+MyFormatter.prototype.formatDistance = function(d){
+    var kilometers = Math.floor(d / 1000);
+    if(kilometers > 0){
+        return (d / 1000).toFixed(2) + ' км';
+    }else{
+        return d + ' м';
+    }
+};
+
+MyFormatter.prototype.formatTime = function(t){
+    if (t > 86400) {
+        return Math.round(t / 3600) + ' ч';
+    } else if (t > 3600) {
+        return Math.floor(t / 3600) + ' ч ' +
+            Math.round((t % 3600) / 60) + ' мин';
+    } else if (t > 300) {
+        return Math.round(t / 60) + ' мин';
+    } else if (t > 60) {
+        return Math.floor(t / 60) + ' мин' +
+            (t % 60 !== 0 ? ' ' + (t % 60) + ' сек' : '');
+    } else {
+        return t + ' сек';
+    }
+};
+
+MyFormatter.prototype.formatInstruction = function(instr, i){
+    switch(instr.type){
+        case 'Straight':
+            return (i === 0 ? 'Двигайтесь прямо' : 'Продолжайте движение');
+        case 'SlightRight':
+            return 'Примите вправо';
+        case 'Right':
+            return 'Поверните направо' + ((instr.road.length > 0) ? ' на ' + instr.road : '');
+        case 'SharpRight':
+            return 'Совершите резкий поворот направо' + ((instr.road.length > 0) ? ' на ' + instr.road : '');
+        case 'TurnAround':
+            return 'Развернитесь';
+        case 'SharpLeft':
+            return 'Совершите резкий поворот налево' + ((instr.road.length > 0) ? ' на ' + instr.road : '');
+        case 'Left':
+            return 'Поверните налево' + ((instr.road.length > 0) ? ' на ' + instr.road : '');
+        case 'SlightLeft':
+            return 'Примите влево';
+        case 'WaypointReached':
+            return 'Прибытие в промежуточный пункт ' + instr.road;
+        case 'Roundabout':
+            return 'На кольцевой дороге выполните ' + instr.exit + '-й съезд на ' + instr.road;
+        case 'DestinationReached':
+            return 'Прибытие в пункт назначения';
+    }
+};
+
+MyFormatter.prototype.getIconName = function(instr, i){
+    console.log(instr);
+    switch (instr.type) {
+        case 'Straight':
+            return (i === 0 ? 'depart' : 'continue');
+        case 'SlightRight':
+            return 'bear-right';
+        case 'Right':
+            return 'turn-right';
+        case 'SharpRight':
+            return 'sharp-right';
+        case 'TurnAround':
+            return 'u-turn';
+        case 'SharpLeft':
+            return 'sharp-left';
+        case 'Left':
+            return 'turn-left';
+        case 'SlightLeft':
+            return 'bear-left';
+        case 'WaypointReached':
+            return 'via';
+        case 'Roundabout':
+            return 'enter-roundabout';
+        case 'DestinationReached':
+            return 'arrive';
+    }
+};
+
+module.exports = MyFormatter;
+},{}],3:[function(require,module,exports){
 var mapFunc = require('./clean-map.js');
 
 $(function(){
     var map = mapFunc('map');
 });
-},{"./clean-map.js":1}],3:[function(require,module,exports){
-function setMarker(popup, map){
-    return function(event){
-        var type = $(event.target).data('type'),
-            waypoint = {
-                latlng: {
-                    lat: popup.getLatLng().lat,
-                    lng: popup.getLatLng().lng
-                },
-                start: false,
-                finish: false
-            };
-        waypoints.push(waypoint);
-        switch(type){
-            case 'start':
-                waypoints = R.map(function(item){
-                    if(item === waypoint){
-                        return R.assoc('start', true, item);
-                    }else{
-                        return R.assoc('start', false, item);
-                    }
-                }, waypoints);
-                break;
-            case 'finish':
-                waypoints = R.map(function(item){
-                    if(item === waypoint){
-                        return R.assoc('finish', true, item);
-                    }else{
-                        return R.assoc('finish', false, item);
-                    }
-                }, waypoints);
-                break;
-        }
-        L.marker(popup.getLatLng())
-            .addTo(map)
-            .on('click', function(event){
-                var marker = this;
-                marker
-                    .bindPopup(Mustache.render($('#popup-controls').html()))
-                    .openPopup();
-            })
-            .on('popupopen', function(event){
-                var popup = event.popup,
-                    handleButtonClick = function(event){
-                        var type = $(event.target).data('type');
-                    };
-                $('.popup-controls').on('click', '> .ui.button', handleButtonClick);
-            })
-            .on('popupclose', function(event){
-                $('.popup-controls').off('click', '**');
-            });
-        map.closePopup(popup);
-    };
-}
-
-function removeMarker(marker){
-
-}
-
-var Mustache = require('mustache'),
-    R = require('ramda'),
-    waypoints = [];
-
-module.exports = function(id){
-    var map = L.map(id, {
-            center: [20.52577476373983, -100.81329345703125],
-            zoom: 13
-        }),
-        buttonsTemplate = Mustache.render($('#buttons-template').html()),
-        control = L.Routing.control({
-            router: new L.Routing.OSRM({
-                serviceUrl: 'http://localhost:5000/viaroute'
-            })
-        });
-    control.addTo(map);
-
-    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
-
-    map.on('click', function(event){
-        var latlng = event.latlng,
-            popup = L.popup()
-            .setLatLng(latlng)
-            .setContent(buttonsTemplate)
-            .openOn(map);
-        $('.buttons-container').on('click', '.ui.button', setMarker(popup, map));
-    });
-    $('#control').on('click', '> .ui.button', function(){
-        $.ajax({
-            url: 'solve',
-            data: JSON.stringify({
-                waypoints: waypoints
-            }),
-            type: 'POST',
-            processData: false,
-            contentType: "application/json"
-        }).done(function(sequence){
-            var route = R.reduce(function(carry, index){
-                var lat = waypoints[index]['latlng']['lat'],
-                    lng = waypoints[index]['latlng']['lng'];
-                carry.push(L.latLng(lat,lng));
-                return carry;
-            }, [], sequence);
-            control.setWaypoints(route).route();
-            console.log('something');
-        });
-    });
-    return map;
-};
-},{"mustache":4,"ramda":5}],4:[function(require,module,exports){
+},{"./clean-map.js":1}],4:[function(require,module,exports){
 /*!
  * mustache.js - Logic-less {{mustache}} templates with JavaScript
  * http://github.com/janl/mustache.js
@@ -8340,4 +8393,4 @@ module.exports = function(id){
 
 }.call(this));
 
-},{}]},{},[2,3]);
+},{}]},{},[3,1]);

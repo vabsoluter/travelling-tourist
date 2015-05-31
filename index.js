@@ -25,8 +25,8 @@ app.post('/solve', bodyParser.json(), function(req, res){
             }
             return carry;
         }, '', waypoints),
-        startIndex = req.body.start,
-        finishIndex = req.body.finish;
+        startIndex = 0,
+        finishIndex = waypoints.length - 1;
     request('http://localhost:5000/table?' + queryString, function(err, resp, body){
         if(err){
             console.error('error getting distance table: ', err);

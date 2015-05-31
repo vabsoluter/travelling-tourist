@@ -14,10 +14,11 @@
     "jade": "~1.10.0",
     "leaflet": "~0.7.3",
     "osrm": "~4.6.1",
-    "mustache": "~2.0.0",
     "ramda": "~0.14.0",
     "body-parser": "~1.12.4",
-    "pg": "~4.3.0"
+    "pg": "~4.3.0",
+    "leaflet-control-geocoder": "~1.1.0",
+    "mustache": "~2.0.0"
   },
   "devDependencies": {
     "grunt": "~0.4.5",

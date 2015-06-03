@@ -1,18 +1,31 @@
 var R = require('ramda'),
+    moment = require('moment'),
     Mustache = require('mustache'),
     MyFormatter = require('./formatter.js'),
     schedule = require('./scheduler.js'),
-    defaultVisitTime = 2,
+    startIcon = L.icon({
+        iconUrl: '/public/images/marker-icon-start.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [0, -39]
+    }),
+    finishIcon = L.icon({
+        iconUrl: '/public/images/marker-icon-end.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [0, -39]
+    }),
+    defaultVisitTime = moment.duration(2, 'hours'),
     validObjects = {
-        place_of_worship: 2,
-        mseum: 3,
-        hospital: 1,
-        cinema: 2,
-        theatre: 3,
-        supermarket: 2,
-        university: 3,
-        library: 5,
-        park: 4
+        place_of_worship: moment.duration(2, 'hours'),
+        museum: moment.duration(3, 'hours'),
+        hospital: moment.duration(1, 'hours'),
+        cinema: moment.duration(2, 'hours'),
+        theatre: moment.duration(3, 'hours'),
+        supermarket: moment.duration(2, 'hours'),
+        university: moment.duration(3, 'hours'),
+        library: moment.duration(5, 'hours'),
+        park: moment.duration(4, 'hours')
     };
 
 function printWaypoints(plan){
@@ -20,16 +33,6 @@ function printWaypoints(plan){
     console.log(R.map(function(waypoint){
         return (waypoint.latLng.lat).toFixed(3) + '/' + (waypoint.latLng.lng).toFixed(3);
     }, waypoints).join('--'));
-}
-
-function makeSquare(latlng, side){
-    var lat = latlng.lat,
-        lng = latlng.lng,
-        l_lat = lat - side / 2,
-        l_lng = lng - side / 2,
-        h_lat = lat + side / 2,
-        h_lng = lng + side / 2;
-    return [l_lat,l_lng,h_lat,h_lng];
 }
 
 function findIndex(latlng, plan){
@@ -41,7 +44,10 @@ function findIndex(latlng, plan){
 function removeWaypoint(marker, plan){
     var latlng = marker.getLatLng(),
         index = findIndex(latlng, plan);
-    plan.spliceWaypoints(index, 1);
+    do{
+        plan.spliceWaypoints(index, 1);
+        index = findIndex(latlng, plan);
+    }while(index > 0);
 }
 
 function markAsStart(marker, plan){
@@ -106,6 +112,11 @@ function getMarkerGenerator(getPlan){
             .on('remove', function(){
                 $('.popup-controls').off('click');
             });
+        if(index === 0){
+            marker.setIcon(startIcon);
+        }else if(index === totalNumber - 1){
+            marker.setIcon(finishIcon);
+        }
         return marker;
     };
 }

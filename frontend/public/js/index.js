@@ -1,19 +1,32 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var R = require('ramda'),
+    moment = require('moment'),
     Mustache = require('mustache'),
     MyFormatter = require('./formatter.js'),
     schedule = require('./scheduler.js'),
-    defaultVisitTime = 2,
+    startIcon = L.icon({
+        iconUrl: '/public/images/marker-icon-start.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [0, -39]
+    }),
+    finishIcon = L.icon({
+        iconUrl: '/public/images/marker-icon-end.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [0, -39]
+    }),
+    defaultVisitTime = moment.duration(2, 'hours'),
     validObjects = {
-        place_of_worship: 2,
-        mseum: 3,
-        hospital: 1,
-        cinema: 2,
-        theatre: 3,
-        supermarket: 2,
-        university: 3,
-        library: 5,
-        park: 4
+        place_of_worship: moment.duration(2, 'hours'),
+        museum: moment.duration(3, 'hours'),
+        hospital: moment.duration(1, 'hours'),
+        cinema: moment.duration(2, 'hours'),
+        theatre: moment.duration(3, 'hours'),
+        supermarket: moment.duration(2, 'hours'),
+        university: moment.duration(3, 'hours'),
+        library: moment.duration(5, 'hours'),
+        park: moment.duration(4, 'hours')
     };
 
 function printWaypoints(plan){
@@ -21,16 +34,6 @@ function printWaypoints(plan){
     console.log(R.map(function(waypoint){
         return (waypoint.latLng.lat).toFixed(3) + '/' + (waypoint.latLng.lng).toFixed(3);
     }, waypoints).join('--'));
-}
-
-function makeSquare(latlng, side){
-    var lat = latlng.lat,
-        lng = latlng.lng,
-        l_lat = lat - side / 2,
-        l_lng = lng - side / 2,
-        h_lat = lat + side / 2,
-        h_lng = lng + side / 2;
-    return [l_lat,l_lng,h_lat,h_lng];
 }
 
 function findIndex(latlng, plan){
@@ -42,7 +45,10 @@ function findIndex(latlng, plan){
 function removeWaypoint(marker, plan){
     var latlng = marker.getLatLng(),
         index = findIndex(latlng, plan);
-    plan.spliceWaypoints(index, 1);
+    do{
+        plan.spliceWaypoints(index, 1);
+        index = findIndex(latlng, plan);
+    }while(index > 0);
 }
 
 function markAsStart(marker, plan){
@@ -107,6 +113,11 @@ function getMarkerGenerator(getPlan){
             .on('remove', function(){
                 $('.popup-controls').off('click');
             });
+        if(index === 0){
+            marker.setIcon(startIcon);
+        }else if(index === totalNumber - 1){
+            marker.setIcon(finishIcon);
+        }
         return marker;
     };
 }
@@ -277,7 +288,7 @@ module.exports = function(id){
     });
     return map;
 };
-},{"./formatter.js":2,"./scheduler.js":4,"mustache":6,"ramda":7}],2:[function(require,module,exports){
+},{"./formatter.js":2,"./scheduler.js":4,"moment":5,"mustache":6,"ramda":7}],2:[function(require,module,exports){
 var MyFormatter = function(options){
 };
 
@@ -377,7 +388,7 @@ moment.locale('ru', {
     weekdays : "воскресенье_понедельник_вторник_среда_четверг_пятница_суббота".split("_"),
     weekdaysShort : "вс._пон._вт._ср._четв._пят._суб.".split("_")
 });
-function schedule(visitInfos, startTime, route){
+function schedule(visitInfos, startTime, route, inGroup){
     var instructions = route.instructions,
         departureTime = moment(startTime),
         schedule = R.reduce(function(carry, instruction){
@@ -396,13 +407,13 @@ function schedule(visitInfos, startTime, route){
                     item: {
                         name: visitInfo.name,
                         type: visitInfo.type,
-                        timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, h:mm a'),
+                        timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, H:mm'),
                         lat: visitInfo.waypoint.latLng.lat,
                         lng: visitInfo.waypoint.latLng.lng
                     },
                     infosLeft: R.tail(visitInfos)
                 });
-                departureTime.add(visitInfo.visitTime, 'h');
+                departureTime.add(visitInfo.visitTime);
             }
             departureTime.add(instruction.time, 's');
             return carry;
@@ -410,7 +421,7 @@ function schedule(visitInfos, startTime, route){
             item: {
                 name: visitInfos[0].name,
                 type: visitInfos[0].type,
-                timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, h:mm:ss a'),
+                timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, H:mm'),
                 lat: visitInfos[0].waypoint.latLng.lat,
                 lng: visitInfos[0].waypoint.latLng.lng
             },

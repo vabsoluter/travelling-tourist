@@ -7,7 +7,7 @@ moment.locale('ru', {
     weekdays : "воскресенье_понедельник_вторник_среда_четверг_пятница_суббота".split("_"),
     weekdaysShort : "вс._пон._вт._ср._четв._пят._суб.".split("_")
 });
-function schedule(visitInfos, startTime, route){
+function schedule(visitInfos, startTime, route, inGroup){
     var instructions = route.instructions,
         departureTime = moment(startTime),
         schedule = R.reduce(function(carry, instruction){
@@ -26,13 +26,13 @@ function schedule(visitInfos, startTime, route){
                     item: {
                         name: visitInfo.name,
                         type: visitInfo.type,
-                        timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, h:mm a'),
+                        timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, H:mm'),
                         lat: visitInfo.waypoint.latLng.lat,
                         lng: visitInfo.waypoint.latLng.lng
                     },
                     infosLeft: R.tail(visitInfos)
                 });
-                departureTime.add(visitInfo.visitTime, 'h');
+                departureTime.add(visitInfo.visitTime);
             }
             departureTime.add(instruction.time, 's');
             return carry;
@@ -40,7 +40,7 @@ function schedule(visitInfos, startTime, route){
             item: {
                 name: visitInfos[0].name,
                 type: visitInfos[0].type,
-                timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, h:mm:ss a'),
+                timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, H:mm'),
                 lat: visitInfos[0].waypoint.latLng.lat,
                 lng: visitInfos[0].waypoint.latLng.lng
             },

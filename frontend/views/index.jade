@@ -21,6 +21,7 @@ block content
                 #reverse-geocode.ui.teal.button= 'Найти'
             #search-results.ui.relaxed.link.items
             .ui.teal.button= 'Построить маршрут'
+            #route.ui.feed
         .eleven.wide.column
             #map
 
@@ -29,3 +30,5 @@ block templates
         include ../templates/popup-controls.html
     script#search-item(type='x-tmpl-mustache')
         include ../templates/search-item.mustache
+    script#visit-sequence-item(type='x-tmpl-mustache')
+        include ../templates/visit-sequence-item.mustache

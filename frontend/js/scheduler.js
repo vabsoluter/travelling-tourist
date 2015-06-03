@@ -1,5 +1,52 @@
-function schedule(route, departureTime){
+var moment = require('moment'),
+    R = require('ramda');
 
+moment.locale('ru', {
+    months : "январь_февраль_март_апрель_май_июнь_июль_август_сентябрь_октябрь_ноябрь_декабрь".split("_"),
+    monthsShort : "янв._февр._март_апр._май_июнь_июль._авг._сен._окт._нояб._дек.".split("_"),
+    weekdays : "воскресенье_понедельник_вторник_среда_четверг_пятница_суббота".split("_"),
+    weekdaysShort : "вс._пон._вт._ср._четв._пят._суб.".split("_")
+});
+function schedule(visitInfos, startTime, route){
+    var instructions = route.instructions,
+        departureTime = moment(startTime),
+        schedule = R.reduce(function(carry, instruction){
+            if(instruction.type === 'WaypointReached' || instruction.type === 'DestinationReached'){
+                var visitInfos = R.last(carry).infosLeft,
+                    visitInfo = R.head(visitInfos),
+                    workdayBeggining = departureTime.clone().hours(9).minutes(0).seconds(0).milliseconds(0),
+                    workdayEnd = departureTime.clone().hours(18).minutes(0).seconds(0).milliseconds(0);
+                if(!departureTime.isBetween(workdayBeggining, workdayEnd)){
+                    if(departureTime.isAfter(workdayEnd)){
+                        departureTime.add(1, 'day');
+                    }
+                    departureTime.hours(9).minutes(0).seconds(0).milliseconds(0);
+                }
+                carry.push({
+                    item: {
+                        name: visitInfo.name,
+                        type: visitInfo.type,
+                        timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, h:mm a'),
+                        lat: visitInfo.waypoint.latLng.lat,
+                        lng: visitInfo.waypoint.latLng.lng
+                    },
+                    infosLeft: R.tail(visitInfos)
+                });
+                departureTime.add(visitInfo.visitTime, 'h');
+            }
+            departureTime.add(instruction.time, 's');
+            return carry;
+        }, [{
+            item: {
+                name: visitInfos[0].name,
+                type: visitInfos[0].type,
+                timeOfArrival: departureTime.format('dddd, MMMM Do YYYY, h:mm:ss a'),
+                lat: visitInfos[0].waypoint.latLng.lat,
+                lng: visitInfos[0].waypoint.latLng.lng
+            },
+            infosLeft: R.tail(visitInfos)
+        }], instructions);
+    return R.pluck('item', schedule);
 }
 
 module.exports = schedule;

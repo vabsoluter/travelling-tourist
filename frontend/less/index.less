@@ -6,6 +6,7 @@
   margin: 0 auto;
   text-align: center;
   min-height: 100px;
+//  margin-bottom: 20px;
   h1.ui.header{
     padding-top: 20px;
     color: #ffffff;
@@ -13,18 +14,40 @@
 }
 
 #map{
-  min-height: 500px;
+  min-height: 600px;
   .ui.button{
     min-width: 200px;
   }
 }
-
-.five.wide.column{
-  .ui.input{
-    margin-bottom: 25px;
-    margin-top: 30px;
+.ui.grid{
+  margin: 0;
+  .eleven.wide.column{
+    padding: 0;
+  }
+  .five.wide.column{
+    padding-top: 0;
+    max-height: 600px;
+    overflow-y: auto;
+    .ui.input{
+      margin-bottom: 25px;
+      margin-top: 30px;
+    }
+    #route.ui.feed{
+      padding-top: 15px;
+      .event{
+        cursor: pointer;
+        margin-bottom: 20px;
+        i.edit.icon{
+          float: right;
+        }
+      }
+    }
+  }
+  .five.wide.column > div{
+    margin-left: 5px;
   }
 }
-.five.wide.column > div{
-  margin-left: 5px;
+
+.leaflet-top.leaflet-right{
+  display: none;
 }

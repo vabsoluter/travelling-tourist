@@ -21,15 +21,39 @@
   color: #ffffff;
 }
 #map {
-  min-height: 500px;
+  min-height: 600px;
 }
 #map .ui.button {
   min-width: 200px;
 }
-.five.wide.column .ui.input {
+.ui.grid {
+  margin: 0;
+}
+.ui.grid .eleven.wide.column {
+  padding: 0;
+}
+.ui.grid .five.wide.column {
+  padding-top: 0;
+  max-height: 600px;
+  overflow-y: auto;
+}
+.ui.grid .five.wide.column .ui.input {
   margin-bottom: 25px;
   margin-top: 30px;
 }
-.five.wide.column > div {
+.ui.grid .five.wide.column #route.ui.feed {
+  padding-top: 15px;
+}
+.ui.grid .five.wide.column #route.ui.feed .event {
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+.ui.grid .five.wide.column #route.ui.feed .event i.edit.icon {
+  float: right;
+}
+.ui.grid .five.wide.column > div {
   margin-left: 5px;
+}
+.leaflet-top.leaflet-right {
+  display: none;
 }

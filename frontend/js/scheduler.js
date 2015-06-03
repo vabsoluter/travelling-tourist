@@ -46,7 +46,15 @@ function schedule(visitInfos, startTime, route, inGroup){
             },
             infosLeft: R.tail(visitInfos)
         }], instructions);
-    return R.pluck('item', schedule);
+    return R.compose(
+        R.mapIndexed(function(item, index, items){
+            if(index === 0 || index === items.length - 1){
+                return R.assoc('editable', false, item);
+            }
+            return R.assoc('editable', true, item);
+        }),
+        R.pluck('item')
+    )(schedule);
 }
 
 module.exports = schedule;

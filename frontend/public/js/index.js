@@ -122,6 +122,12 @@ function getMarkerGenerator(getPlan){
     };
 }
 
+function findIndexByCoordinates(visitInfos, lat, lng){
+    return R.findIndex(function(visitInfo){
+        return visitInfo.waypoint.latLng.lat === lat && visitInfo.waypoint.latLng.lng === lng;
+    }, visitInfos);
+}
+
 function itemClickHandlerBuilder(map){
     return function(event){
         var item = $(event.target).parents('.item'),
@@ -129,6 +135,14 @@ function itemClickHandlerBuilder(map){
             lng = item.data('lng');
         map.setView(L.latLng(lat, lng));
     };
+}
+
+function printSchedule(visitInfos, startTime, routes, node){
+    var mainRoute = routes[0],
+        items = schedule(visitInfos, startTime, mainRoute);
+    node.html(R.map(function(item){
+        return Mustache.render($('#visit-sequence-item').html(), item);
+    }, items).join(''));
 }
 
 module.exports = function(id){
@@ -149,7 +163,8 @@ module.exports = function(id){
         geocoderControl = new L.Control.Geocoder(),
         searchResults = $('#search-results'),
         routeItems = $('#route'),
-        startTime = null;
+        startTime = null,
+        visitInfos = null;
 
     map.addLayer(plan);
     L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -159,14 +174,44 @@ module.exports = function(id){
     });
 
     searchResults.on('click', '> .item', itemClickHandlerBuilder(map));
+
     routeItems.on('click', '> .event', function(event){
+        var lat = $(this).data('lat'),
+            lng = $(this).data('lng');
         if(!R.isNil(startTime) && $(event.target).hasClass('icon')){
-            console.log('edit');
+            var index = findIndexByCoordinates(visitInfos, lat, lng),
+                oldVisitTime = visitInfos[index].visitTime,
+                hours = oldVisitTime.hours(),
+                minutes = oldVisitTime.minutes();
+            $('.visit-time-edit').remove();
+            console.log(visitInfos[index]);
+            $(this).find('.extra.text').append(Mustache.render($('#visit-time').html(), {
+                hours: hours > 0 ? hours : '0',
+                minutes: minutes > 0 ? minutes : '00'
+            }));
         }else{
-            var lat = $(this).data('lat'),
-                lng = $(this).data('lng');
             map.setView(L.latLng(lat,lng));
         }
+    }).on('click', '.change-visit-time', function(){
+        var hoursVal = $(this).parent().find('.hours').find('input').val(),
+            minutesVal = $(this).parent().find('.minutes').find('input').val(),
+            hours = parseInt(hoursVal, 10) || 0,
+            minutes = parseInt(minutesVal, 10) || 0,
+            lat = $(this).parents('.event').data('lat'),
+            lng = $(this).parents('.event').data('lng'),
+            visitInfo = visitInfos[findIndexByCoordinates(visitInfos, lat, lng)],
+            duration = moment.duration({
+                hours: hours,
+                minutes: minutes
+            });
+        visitInfo.visitTime = duration;
+        control.getRouter().route(plan.getWaypoints(), function(err, routes){
+            if(err){
+                console.error('can not build route');
+                return;
+            }
+            printSchedule(visitInfos, startTime, routes, routeItems);
+        });
     });
 
     $('#reverse-geocode').click(function(){
@@ -248,33 +293,30 @@ module.exports = function(id){
                                 }).pipe(R.identity);
                             }, plan.getWaypoints());
                         $.when.apply($, promises).done(function(){
-                            var geocodeResults = Array.prototype.slice.apply(arguments),
-                                mainRoute = routes[0],
-                                visitInfos = R.mapIndexed(function(geocodeEntry, index){
-                                    var address = R.assoc('latlng', {
-                                            lat: geocodeEntry.lat,
-                                            lng: geocodeEntry.lon
-                                        }, geocodeEntry.address),
-                                        type = R.head(R.intersection(R.keys(address), R.keys(validObjects)));
-                                    return {
-                                        name: geocodeEntry['display_name'],
-                                        type: R.defaultTo('default')(type),
-                                        waypoint: plan.getWaypoints()[index],
-                                        visitTime: R.defaultTo(defaultVisitTime)(validObjects[type])
-                                    };
-                                }, geocodeResults);
+                            var geocodeResults = Array.prototype.slice.apply(arguments);
+                            visitInfos = R.mapIndexed(function(geocodeEntry, index){
+                                var address = R.assoc('latlng', {
+                                        lat: geocodeEntry.lat,
+                                        lng: geocodeEntry.lon
+                                    }, geocodeEntry.address),
+                                    type = R.head(R.intersection(R.keys(address), R.keys(validObjects)));
+                                return {
+                                    name: geocodeEntry['display_name'],
+                                    type: R.defaultTo('default')(type),
+                                    waypoint: plan.getWaypoints()[index],
+                                    visitTime: R.defaultTo(defaultVisitTime)(validObjects[type])
+                                };
+                            }, geocodeResults);
                             if(!R.isNil(startTime)){
-                                var items = schedule(visitInfos, startTime, mainRoute);
-                                $('#route').html(R.map(function(item){
-                                    return Mustache.render($('#visit-sequence-item').html(), item);
-                                }, items).join(''));
+                                printSchedule(visitInfos, startTime, routes, routeItems);
                             }else{
                                 routeItems.html(R.map(function(visitInfo){
                                     return Mustache.render($('#visit-sequence-item').html(), {
                                         name: visitInfo.name,
                                         lat: visitInfo.waypoint.latLng.lat,
                                         lng: visitInfo.waypoint.latLng.lng,
-                                        timeOfArrival: '-'
+                                        timeOfArrival: '-',
+                                        editable: false
                                     });
                                 }, visitInfos).join(''));
                             }
@@ -427,7 +469,15 @@ function schedule(visitInfos, startTime, route, inGroup){
             },
             infosLeft: R.tail(visitInfos)
         }], instructions);
-    return R.pluck('item', schedule);
+    return R.compose(
+        R.mapIndexed(function(item, index, items){
+            if(index === 0 || index === items.length - 1){
+                return R.assoc('editable', false, item);
+            }
+            return R.assoc('editable', true, item);
+        }),
+        R.pluck('item')
+    )(schedule);
 }
 
 module.exports = schedule;

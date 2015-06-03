@@ -51,6 +51,11 @@
 .ui.grid .five.wide.column #route.ui.feed .event i.edit.icon {
   float: right;
 }
+.ui.grid .five.wide.column #route.ui.feed .time-picker .ui.right.labeled.input {
+  margin-top: 5px;
+  margin-bottom: 5px;
+  width: 50%;
+}
 .ui.grid .five.wide.column > div {
   margin-left: 5px;
 }

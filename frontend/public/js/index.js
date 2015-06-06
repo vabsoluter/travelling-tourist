@@ -151,7 +151,7 @@ module.exports = function(id){
     }
 
     var map = L.map(id, {
-            center: [20.52577476373983, -100.81329345703125],
+            center: [61.78648678275323, 34.352024495601654],
             zoom: 13
         }),
         formatter = new MyFormatter(),
@@ -173,6 +173,7 @@ module.exports = function(id){
 
     map.on('click', function(event){
         addWaypoint(plan, event.latlng);
+        console.log(event.latlng);
     });
 
     searchResults.on('click', '> .item', itemClickHandlerBuilder(map));

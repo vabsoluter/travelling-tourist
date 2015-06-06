@@ -7,10 +7,10 @@ moment.locale('ru', {
     weekdays : "воскресенье_понедельник_вторник_среда_четверг_пятница_суббота".split("_"),
     weekdaysShort : "вс._пон._вт._ср._четв._пят._суб.".split("_")
 });
-function schedule(visitInfos, startTime, route, touristType){
+function schedule(visitInfos, startTime, route, gt){
     var instructions = route.instructions,
         departureTime = moment(startTime),
-        gatheringTime = (touristType === 'individual') ? moment.duration(0, 'minutes') : moment.duration(10, 'minutes'),
+        gatheringTime = moment.duration(gt, 'minutes'),
         schedule = R.reduce(function(carry, instruction){
             if(instruction.type === 'WaypointReached' || instruction.type === 'DestinationReached'){
                 var visitInfos = R.last(carry).infosLeft,

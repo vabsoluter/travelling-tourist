@@ -137,9 +137,9 @@ function itemClickHandlerBuilder(map){
     };
 }
 
-function printSchedule(visitInfos, startTime, routes, touristType, node){
+function printSchedule(visitInfos, startTime, routes, gatheringTime, node){
     var mainRoute = routes[0],
-        items = schedule(visitInfos, startTime, mainRoute, touristType);
+        items = schedule(visitInfos, startTime, mainRoute, gatheringTime);
     node.html(R.map(function(item){
         return Mustache.render($('#visit-sequence-item').html(), item);
     }, items).join(''));
@@ -165,15 +165,13 @@ module.exports = function(id){
         routeItems = $('#route'),
         startTime = null,
         visitInfos = null,
-        touristType = 'individual',
-        touristTypeCheckboxes = $('.ui.radio.checkbox');
+        gatheringTime = 0;
 
     map.addLayer(plan);
     L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     map.on('click', function(event){
         addWaypoint(plan, event.latlng);
-        console.log(event.latlng);
     });
 
     searchResults.on('click', '> .item', itemClickHandlerBuilder(map));
@@ -212,25 +210,12 @@ module.exports = function(id){
                 console.error('can not build route');
                 return;
             }
-            printSchedule(visitInfos, startTime, routes, touristType, routeItems);
+            printSchedule(visitInfos, startTime, routes, gatheringTime, routeItems);
         });
     });
 
-    touristTypeCheckboxes.checkbox({
-        onChange: function(){
-            var name = $(this).attr('name');
-            if($(this).parent().checkbox('is checked')){
-                touristType = (name === 'individual-tourist') ? 'individual' : 'grouped';
-                var uiRadio = $(this).parent()[0],
-                    counterpart = R.compose(
-                        R.head,
-                        R.reject(function(input){
-                            return input === uiRadio;
-                        })
-                    )(touristTypeCheckboxes.toArray());
-                $(counterpart).checkbox('uncheck');
-            }
-        }
+    $('#gathering-time').on('change', function(event){
+        gatheringTime = R.defaultTo(0)(parseInt($(this).find('input').val(), 10));
     });
 
     $('#reverse-geocode').click(function(){
@@ -327,7 +312,7 @@ module.exports = function(id){
                                 };
                             }, geocodeResults);
                             if(!R.isNil(startTime)){
-                                printSchedule(visitInfos, startTime, routes, touristType, routeItems);
+                                printSchedule(visitInfos, startTime, routes, gatheringTime, routeItems);
                             }else{
                                 routeItems.html(R.map(function(visitInfo){
                                     return Mustache.render($('#visit-sequence-item').html(), {
@@ -449,10 +434,10 @@ moment.locale('ru', {
     weekdays : "воскресенье_понедельник_вторник_среда_четверг_пятница_суббота".split("_"),
     weekdaysShort : "вс._пон._вт._ср._четв._пят._суб.".split("_")
 });
-function schedule(visitInfos, startTime, route, touristType){
+function schedule(visitInfos, startTime, route, gt){
     var instructions = route.instructions,
         departureTime = moment(startTime),
-        gatheringTime = (touristType === 'individual') ? moment.duration(0, 'minutes') : moment.duration(10, 'minutes'),
+        gatheringTime = moment.duration(gt, 'minutes'),
         schedule = R.reduce(function(carry, instruction){
             if(instruction.type === 'WaypointReached' || instruction.type === 'DestinationReached'){
                 var visitInfos = R.last(carry).infosLeft,

@@ -28,13 +28,6 @@ var R = require('ramda'),
         park: moment.duration(4, 'hours')
     };
 
-function printWaypoints(plan){
-    var waypoints = plan.getWaypoints();
-    console.log(R.map(function(waypoint){
-        return (waypoint.latLng.lat).toFixed(3) + '/' + (waypoint.latLng.lng).toFixed(3);
-    }, waypoints).join('--'));
-}
-
 function findIndex(latlng, plan){
     return R.findIndex(function(waypoint){
         return waypoint.latLng === latlng;
@@ -86,7 +79,6 @@ function handleMarkerManipulation(marker, plan){
             default:
                 return;
         }
-        printWaypoints(plan);
     };
 }
 
@@ -145,6 +137,7 @@ function printSchedule(visitInfos, startTime, routes, gatheringTime, node){
 }
 
 module.exports = function(id){
+
     function getPlan(){
         return plan;
     }
@@ -153,7 +146,6 @@ module.exports = function(id){
             center: [61.78648678275323, 34.352024495601654],
             zoom: 13
         }),
-        formatter = new MyFormatter(),
         plan = L.Routing.plan([],{
             draggableWaypoints: false,
             createMarker: getMarkerGenerator(getPlan)
@@ -184,7 +176,6 @@ module.exports = function(id){
                 hours = oldVisitTime.hours(),
                 minutes = oldVisitTime.minutes();
             $('.visit-time-edit').remove();
-            console.log(visitInfos[index]);
             $(this).find('.extra.text').append(Mustache.render($('#visit-time').html(), {
                 hours: hours > 0 ? hours : '0',
                 minutes: minutes > 0 ? minutes : '00'
@@ -213,7 +204,7 @@ module.exports = function(id){
         });
     });
 
-    $('#gathering-time').on('change', function(event){
+    $('#gathering-time').on('change', function(){
         gatheringTime = R.defaultTo(0)(parseInt($(this).find('input').val(), 10));
     });
 
@@ -275,8 +266,7 @@ module.exports = function(id){
                     },
                     router: new L.Routing.OSRM({
                         serviceUrl: 'http://localhost:5000/viaroute'
-                    }),
-                    formatter: formatter
+                    })
                 });
                 control.getRouter().route(plan.getWaypoints(), function(err, routes){
                     if(err){

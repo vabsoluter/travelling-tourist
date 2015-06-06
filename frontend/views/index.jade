@@ -14,14 +14,14 @@ block append scripts
 block content
     .ui.grid
         #left-menu.five.wide.column
+            .ui.fluid.action.input
+                input(placeholder='Поиск по адресу')
+                #reverse-geocode.ui.teal.button= 'Найти'
             .ui.fluid.input
                 input#datetimepicker(type='text' placeholder='Выберите дату и время отправления')
             #gathering-time.ui.right.labeled.fluid.input
                 input(type='text' placeholder='Введите время на сборы')
                 .ui.label= 'мин.'
-            .ui.fluid.action.input
-                input(placeholder='Введите название')
-                #reverse-geocode.ui.teal.button= 'Найти'
             #search-results.ui.relaxed.link.items
             .ui.teal.button= 'Построить маршрут'
             #route.ui.feed

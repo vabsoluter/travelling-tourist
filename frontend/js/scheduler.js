@@ -15,9 +15,9 @@ function schedule(visitInfos, startTime, route, gt){
             if(instruction.type === 'WaypointReached' || instruction.type === 'DestinationReached'){
                 var visitInfos = R.last(carry).infosLeft,
                     visitInfo = R.head(visitInfos),
-                    workdayBeggining = departureTime.clone().hours(9).minutes(0).seconds(0).milliseconds(0),
+                    workdayBeginning = departureTime.clone().hours(9).minutes(0).seconds(0).milliseconds(0),
                     workdayEnd = departureTime.clone().hours(18).minutes(0).seconds(0).milliseconds(0);
-                if(!departureTime.isBetween(workdayBeggining, workdayEnd)){
+                if(!departureTime.isBetween(workdayBeginning, workdayEnd)){
                     if(departureTime.isAfter(workdayEnd)){
                         departureTime.add(1, 'day');
                     }

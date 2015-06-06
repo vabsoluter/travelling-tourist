@@ -137,9 +137,9 @@ function itemClickHandlerBuilder(map){
     };
 }
 
-function printSchedule(visitInfos, startTime, routes, node){
+function printSchedule(visitInfos, startTime, routes, touristType, node){
     var mainRoute = routes[0],
-        items = schedule(visitInfos, startTime, mainRoute);
+        items = schedule(visitInfos, startTime, mainRoute, touristType);
     node.html(R.map(function(item){
         return Mustache.render($('#visit-sequence-item').html(), item);
     }, items).join(''));
@@ -164,7 +164,9 @@ module.exports = function(id){
         searchResults = $('#search-results'),
         routeItems = $('#route'),
         startTime = null,
-        visitInfos = null;
+        visitInfos = null,
+        touristType = 'individual',
+        touristTypeCheckboxes = $('.ui.radio.checkbox');
 
     map.addLayer(plan);
     L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -199,19 +201,35 @@ module.exports = function(id){
             minutes = parseInt(minutesVal, 10) || 0,
             lat = $(this).parents('.event').data('lat'),
             lng = $(this).parents('.event').data('lng'),
-            visitInfo = visitInfos[findIndexByCoordinates(visitInfos, lat, lng)],
-            duration = moment.duration({
-                hours: hours,
-                minutes: minutes
-            });
-        visitInfo.visitTime = duration;
+            visitInfo = visitInfos[findIndexByCoordinates(visitInfos, lat, lng)];
+        visitInfo.visitTime = moment.duration({
+            hours: hours,
+            minutes: minutes
+        });
         control.getRouter().route(plan.getWaypoints(), function(err, routes){
             if(err){
                 console.error('can not build route');
                 return;
             }
-            printSchedule(visitInfos, startTime, routes, routeItems);
+            printSchedule(visitInfos, startTime, routes, touristType, routeItems);
         });
+    });
+
+    touristTypeCheckboxes.checkbox({
+        onChange: function(){
+            var name = $(this).attr('name');
+            if($(this).parent().checkbox('is checked')){
+                touristType = (name === 'individual-tourist') ? 'individual' : 'grouped';
+                var uiRadio = $(this).parent()[0],
+                    counterpart = R.compose(
+                        R.head,
+                        R.reject(function(input){
+                            return input === uiRadio;
+                        })
+                    )(touristTypeCheckboxes.toArray());
+                $(counterpart).checkbox('uncheck');
+            }
+        }
     });
 
     $('#reverse-geocode').click(function(){
@@ -308,7 +326,7 @@ module.exports = function(id){
                                 };
                             }, geocodeResults);
                             if(!R.isNil(startTime)){
-                                printSchedule(visitInfos, startTime, routes, routeItems);
+                                printSchedule(visitInfos, startTime, routes, touristType, routeItems);
                             }else{
                                 routeItems.html(R.map(function(visitInfo){
                                     return Mustache.render($('#visit-sequence-item').html(), {
@@ -430,9 +448,10 @@ moment.locale('ru', {
     weekdays : "воскресенье_понедельник_вторник_среда_четверг_пятница_суббота".split("_"),
     weekdaysShort : "вс._пон._вт._ср._четв._пят._суб.".split("_")
 });
-function schedule(visitInfos, startTime, route, inGroup){
+function schedule(visitInfos, startTime, route, touristType){
     var instructions = route.instructions,
         departureTime = moment(startTime),
+        gatheringTime = (touristType === 'individual') ? moment.duration(0, 'minutes') : moment.duration(10, 'minutes'),
         schedule = R.reduce(function(carry, instruction){
             if(instruction.type === 'WaypointReached' || instruction.type === 'DestinationReached'){
                 var visitInfos = R.last(carry).infosLeft,
@@ -455,7 +474,7 @@ function schedule(visitInfos, startTime, route, inGroup){
                     },
                     infosLeft: R.tail(visitInfos)
                 });
-                departureTime.add(visitInfo.visitTime);
+                departureTime.add(visitInfo.visitTime.add(gatheringTime));
             }
             departureTime.add(instruction.time, 's');
             return carry;

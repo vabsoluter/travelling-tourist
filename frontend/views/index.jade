@@ -16,6 +16,16 @@ block content
         #left-menu.five.wide.column
             .ui.fluid.input
                 input#datetimepicker(type='text' placeholder='Выберите дату и время отправления')
+            .ui.form
+                .grouped.inline.fields
+                    .field
+                        .ui.radio.checkbox
+                            input(name='individual-tourist' type='radio')
+                            label= 'одиночка'
+                    .field
+                        .ui.radio.checkbox
+                            input(name='grouped-tourist' type='radio')
+                            label= 'туристическая группа'
             .ui.fluid.action.input
                 input(placeholder='Введите название')
                 #reverse-geocode.ui.teal.button= 'Найти'
